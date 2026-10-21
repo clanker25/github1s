@@ -1,0 +1,21 @@
+export default {
+	tabWidth: 2,
+	useTabs: true,
+	semi: true,
+	singleQuote: true,
+	printWidth: 120,
+	overrides: [
+		{
+			files: ['*.yml', '*.yaml', '*.json', '*.jsonc'],
+			options: {
+				useTabs: false,
+			},
+		},
+		{
+			files: ['*.jsonc'],
+			options: {
+				trailingComma: 'none',
+			},
+		},
+	],
+};

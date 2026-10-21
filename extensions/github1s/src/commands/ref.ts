@@ -1,0 +1,58 @@
+/**
+ * @file GitHub1s Ref Related Commands
+ * @author netcon
+ */
+
+import * as vscode from 'vscode';
+import router from '@/router';
+import { Repository } from '@/repository';
+
+const loadMorePickerItem: vscode.QuickPickItem = {
+	label: '$(more) Load More',
+	alwaysShow: true,
+};
+
+const checkoutToItem: vscode.QuickPickItem = {
+	label: '$(debug-disconnect) Checkout detached',
+	alwaysShow: true,
+};
+
+// check out to branch/tag/commit
+const commandCheckoutTo = async () => {
+	const routeState = router.getState();
+	const repository = Repository.getCurrentInstance();
+	const quickPick = vscode.window.createQuickPick();
+
+	const loadMoreRefPickerItems = async () => {
+		quickPick.busy = true;
+		await Promise.all([repository.loadMoreBranches(), repository.loadMoreTags()]);
+		const [branchRefs, tagRefs] = await Promise.all([repository.getBranchList(), repository.getTagList()]);
+		const refPickerItems = [...branchRefs, ...tagRefs].map((ref) => ({
+			label: ref.name,
+			description: ref.description,
+		}));
+		const hasMore = (await Promise.all([repository.hasMoreBranches(), repository.hasMoreTags()])).some(Boolean);
+		quickPick.items = [...refPickerItems, hasMore ? loadMorePickerItem : null!, checkoutToItem].filter(Boolean);
+		quickPick.busy = false;
+	};
+
+	quickPick.placeholder = 'Input a ref to checkout';
+	quickPick.items = [checkoutToItem];
+	loadMoreRefPickerItems();
+	quickPick.show();
+
+	quickPick.onDidAccept(async () => {
+		const choice = quickPick.activeItems[0];
+		if (choice === loadMorePickerItem) {
+			return loadMoreRefPickerItems();
+		}
+		const selectedRef = choice === checkoutToItem ? quickPick.value : choice?.label;
+		const targetRef = selectedRef.toUpperCase() !== 'HEAD' ? selectedRef : undefined;
+		router.push(await router.getParser().buildTreePath(routeState.repo, targetRef));
+		quickPick.hide();
+	});
+};
+
+export const registerRefCommands = (context: vscode.ExtensionContext) => {
+	return context.subscriptions.push(vscode.commands.registerCommand('github1s.commands.checkoutTo', commandCheckoutTo));
+};
